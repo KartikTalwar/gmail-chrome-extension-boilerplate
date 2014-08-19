@@ -16,4 +16,4 @@ var main = function(){
 }
 
 
-refresh(main());
+refresh(main);

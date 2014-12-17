@@ -6,7 +6,9 @@ This is a sample chome extension that uses gmail.js to build apps on top of Gmai
 
 The manifest in this repo bypasses the new Content Security Policy (CSP) enforced by Gmail.
 
-http://github.com/kartiktalwar/gmail.js
+### Please use the latest `gmail.js` file from the original repo linked below
+
+**http://github.com/kartiktalwar/gmail.js**
 
 
 

@@ -59,7 +59,33 @@ var Gmail = function(localJQuery) {
 
 
   api.get.localization = function() {
-    return api.tracker.globals[17][8][8];
+    var isLocale = function(locale) {
+      // A locale is a string that begins with 2 letters, lowercase.
+      // The 'lowercase' check distinguishes locales from other 2-letter strings like 'US'
+      // (the user's location?).
+      if (!locale || ((typeof locale) !== 'string') || locale.length < 2) {
+        return false;
+      }
+
+      var localePrefix = locale.slice(0, 2);
+      return localePrefix.toLowerCase() === localePrefix;
+    };
+
+    var globals = api.tracker.globals;
+
+    // First candidate.
+    var locale = globals[17] && globals[17][8] && globals[17][8][8];
+    if (isLocale(locale)) {
+      return locale;
+    }
+
+    // Second candidate.
+    locale = globals[17] && globals[17][9] && globals[17][9][8];
+    if (isLocale(locale)) {
+      return locale;
+    }
+
+    return null;
   };
 
 
@@ -163,6 +189,16 @@ var Gmail = function(localJQuery) {
   api.dom.email_body = function() {
     return $('.nH.hx');
   }
+
+  api.dom.toolbar = function() {
+    var tb = $("[gh='mtb']");
+
+    while($(tb).children().length == 1){
+      tb = $(tb).children().first();
+    }
+
+    return tb;
+}
 
 
   api.check.is_inside_email = function() {
@@ -657,6 +693,7 @@ var Gmail = function(localJQuery) {
 
       case "dm":
       case "rtr":
+      case "mo":
         response = [sent_params.m, params.url, params.body];
         break;
 
@@ -1043,7 +1080,7 @@ var Gmail = function(localJQuery) {
   //                   handler: function( matchElement, callback ) {}, // if specified this handler is called if a match is found. Otherwise default calls the callback & passes the jQuery matchElement
   //                   sub_observers: { }, // hash of event_name: config_hash's - config hash supports all properties of this config hash. Observer will be bound as DOMNodeInserted to the matching class+sub_selector element.
   //                 },
-  // TODO: current limitation allows only 1 action per watched className (i.e. each watched class must be 
+  // TODO: current limitation allows only 1 action per watched className (i.e. each watched class must be
   //       unique). If this functionality is needed this can be worked around by pushing actions to an array
   //       in api.tracker.dom_observer_map below
   // console.log( 'Observer set for', action, callback);
@@ -1165,9 +1202,9 @@ var Gmail = function(localJQuery) {
     This method can be called two different ways:
     Args:
       action - the name of the new DOM observer
-      className / args - for a simple observer, this arg can simply be the class on an inserted DOM element that identifies this event should be 
+      className / args - for a simple observer, this arg can simply be the class on an inserted DOM element that identifies this event should be
         triggered. For a more complicated observer, this can be an object containing properties for each of the supported DOM observer config arguments
-      parent - optional - if specified, this observer will be registered as a sub_observer for the specified parent      
+      parent - optional - if specified, this observer will be registered as a sub_observer for the specified parent
    */
   api.observe.register = function(action, args, parent) {
 
@@ -1227,7 +1264,7 @@ var Gmail = function(localJQuery) {
         //api.tracker.dom_watchdog = {}; // store passed observer callbacks for different DOM events
 
         // this listener will check every element inserted into the DOM
-        // for specified classes (as defined in api.tracker.dom_observers above) which indicate 
+        // for specified classes (as defined in api.tracker.dom_observers above) which indicate
         // related actions which need triggering
         $(window.document).bind('DOMNodeInserted', function(e) {
           api.tools.insertion_observer(e.target, api.tracker.dom_observers, api.tracker.dom_observer_map);
@@ -1378,7 +1415,9 @@ var Gmail = function(localJQuery) {
       url += '&cat=^smartlabel_' + cat_label +'&search=category';
     } else if(page.indexOf('search/') == 0) {
       url += '&qs=true&q=' + page.split('/')[1] +'&search=query';
-    } else {
+    } else if(page == 'inbox'){
+      url += '&search=' + 'mbox';
+    }else {
       url += '&search=' + page;
     }
 
@@ -1404,6 +1443,24 @@ var Gmail = function(localJQuery) {
     return emails;
   }
 
+  api.get.selected_emails_data = function(){
+    var selected_emails = [];
+    if(!api.check.is_inside_email()){
+      if($('[gh="tl"] div[role="checkbox"][aria-checked="true"]').length){
+        var email = null;
+        var emails = api.get.visible_emails();
+        $('[gh="tl"] div[role="checkbox"]').each(function(index){
+          if($(this).attr('aria-checked') == "true"){
+            email = api.get.email_data(emails[index].id);
+            selected_emails.push(email);
+          }
+        });
+      }
+    }else {
+      selected_emails.push(api.get.email_data());
+    }
+    return selected_emails;
+  }
 
   api.get.current_page = function() {
     var hash  = window.location.hash.split('#').pop();
@@ -1505,7 +1562,8 @@ var Gmail = function(localJQuery) {
     for(i in email_data) {
       var x = email_data[i];
       if(x[0] == 'cs') {
-        data.first_email = x[1];
+        data.thread_id = x[1];
+        data.first_email= x[8][0];
         data.last_email = x[2];
         data.total_emails = x[3];
         data.total_threads = x[8];
@@ -1552,7 +1610,7 @@ var Gmail = function(localJQuery) {
     }
 
     if(email_id != undefined) {
-      var url = window.location.origin + window.location.pathname + '?ui=2&ik=' + api.tracker.ik + '&rid=' + api.tracker.rid + '&view=cv&th=' + email_id + '&msgs=&mb=0&rt=1&search=inbox';
+      var url = window.location.origin + window.location.pathname + '?ui=2&ik=' + api.tracker.ik + '&rid=' + api.tracker.rid + '&view=cv&th=' + email_id + '&msgs=&mb=0&rt=1&search=mbox';
       var get_data = api.tools.make_request(url);
           get_data = get_data.substring(get_data.indexOf('['), get_data.length);
           get_data = 'var cdata = ' + get_data;
@@ -1724,6 +1782,47 @@ var Gmail = function(localJQuery) {
     }
 
     return dictionary[label];
+  }
+
+  api.tools.add_toolbar_button = function(content, onClickFunction,styleClass) {
+    var container = $(document.createElement('div'));
+    container.attr('class','G-Ni J-J5-Ji');
+
+    var button = $(document.createElement('div'));
+    var buttonClasses = 'T-I J-J5-Ji lS ';
+    if(styleClass != undefined &&
+      styleClass != null &&
+      styleClass != ''){
+      buttonClasses += styleClass;
+    }else{
+      buttonClasses += 'T-I-ax7 ar7';
+    }
+    button.attr('class', buttonClasses);
+
+    button.html(content);
+    button.click(onClickFunction);
+
+    var content = $(document.createElement('div'));
+    content.attr('class','asa');
+
+    container.html(button);
+
+    api.dom.toolbar().append(container);
+
+    return container;
+  }
+
+  api.tools.add_compose_button =  function(composeWindow, content, onClickFunction, styleClass) {
+    var button = $(document.createElement('div'));
+    var buttonClasses = 'T-I J-J5-Ji aoO L3 ';
+    if(styleClass != undefined){
+      buttonClasses += styleClass;
+    }
+    button.attr('class', buttonClasses);
+    button.html(content);
+    button.click(onClickFunction);
+
+    composeWindow.find('.gU.Up  > .J-J5-Ji').append(button);
   }
 
   api.chat.is_hangouts = function() {

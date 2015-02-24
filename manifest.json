@@ -4,7 +4,7 @@
   "description": "Hello World Gmail chrome extension",
   "content_scripts": [
     {
-      "matches": ["https://*.google.com/*"],
+      "matches": ["https://mail.google.com/*"],
       "js": ["content.js"]
     }
   ],
